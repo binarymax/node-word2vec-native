@@ -1,5 +1,5 @@
 {
-  "name": "node-word2vec-native",
+  "name": "word2vec-native",
   "version": "0.1.0",
   "description": "Port of the word2vec distance program as a native node addon",
   "main": "index.js",
