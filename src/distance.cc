@@ -1,9 +1,10 @@
 // distance.cc
 #include <node.h>
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string>
+#include <cstring>
 #include <iostream>
 
 namespace word2vec {
