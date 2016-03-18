@@ -122,12 +122,100 @@ void Open(const FunctionCallbackInfo<Value>& args) {
 }
 
 
+// =======================================================================
+
+void Compare(const FunctionCallbackInfo<Value>& args) {
+
+	Isolate* isolate = args.GetIsolate();
+
+	Local<Object> data = Object::New(isolate);
+	Local<Object> data_meta = Object::New(isolate);
+
+	char lookup1[max_size];
+	char lookup2[max_size];
+	
+	float dist = 0;
+
+	long long a, b, i;
+
+	if (args.Length() != 2) {
+		isolate->ThrowException(Exception::TypeError(
+			String::NewFromUtf8(isolate, "Two arguments are required for distance.compare(<string>,<string>)")));
+		return;
+	}
+
+	if (!args[0]->IsString()) {
+		isolate->ThrowException(Exception::TypeError(
+			String::NewFromUtf8(isolate, "First argument must be a string")));
+		return;
+	}
+
+	if (!args[1]->IsString()) {
+		isolate->ThrowException(Exception::TypeError(
+			String::NewFromUtf8(isolate, "Second argument must be a string")));
+		return;
+	}
+
+
+	//Cast the lookup words
+	v8::String::Utf8Value param1(args[0]->ToString());
+	string word1 = string(*param1);
+	std::strcpy(lookup1, word1.c_str());
+
+	v8::String::Utf8Value param2(args[1]->ToString());
+	string word2 = string(*param2);
+	std::strcpy(lookup2, word2.c_str());
+
+	//positions in dictionary of word1 and word2
+	a = -1;
+	b = -1;
+
+	for (i = 0; i < words; i++) {
+		//find word1 and word2 in the dictionary, store the respective positions in a and b
+		if (!strcmp(&vocab[i * max_w], lookup1)) a = i;
+		if (!strcmp(&vocab[i * max_w], lookup2)) b = i;
+		if (a>0 && b>0) break;
+	}
+
+	if (a == -1) {
+		//Word 1 not found in vocabulary
+		isolate->ThrowException(Exception::TypeError(
+			String::NewFromUtf8(isolate, "Word 1 was not found in the dictionary.")));
+		return;
+	}
+
+	if (b == -1) {
+		//Word 2 not found in vocabulary
+		isolate->ThrowException(Exception::TypeError(
+			String::NewFromUtf8(isolate, "Word 2 was not found in the dictionary.")));
+		return;
+	}
+
+	//distance between the two words is the dot product
+	for (i = 0; i < size; i++) {
+		dist += matrix[i + a * size] * matrix[i + b * size];
+	}
+
+	data_meta->Set(String::NewFromUtf8(isolate, "word1"), args[0]);
+	data_meta->Set(String::NewFromUtf8(isolate, "word2"), args[1]);
+	data_meta->Set(String::NewFromUtf8(isolate, "word1position"), Number::New(isolate, a));
+	data_meta->Set(String::NewFromUtf8(isolate, "word2position"), Number::New(isolate, b));
+	data->Set(String::NewFromUtf8(isolate, "meta"), data_meta);
+	data->Set(String::NewFromUtf8(isolate,"dist"), Number::New(isolate, dist));
+
+	//Return
+	args.GetReturnValue().Set(data);
+
+}
+
+// =======================================================================
+
 void Get(const FunctionCallbackInfo<Value>& args) {
 	Isolate* isolate = args.GetIsolate();
 
-	char st1[max_size];
+	char lookup[max_size];
 	char *bestw[closest];
-	char st[100][max_size];
+	char candidate[100][max_size];
 	float dist, bestd[closest], vec[max_size];
 	long long a, b, c, d, cn, bi[100];
 
@@ -152,7 +240,7 @@ void Get(const FunctionCallbackInfo<Value>& args) {
     //Cast the lookup word
     v8::String::Utf8Value param1(args[0]->ToString());
 	string word1 = string(*param1);
-	std::strcpy(st1, word1.c_str());
+	std::strcpy(lookup, word1.c_str());
 
 
 	Local<Object> data = Object::New(isolate);
@@ -167,12 +255,12 @@ void Get(const FunctionCallbackInfo<Value>& args) {
 	b = 0;
 	c = 0;
 	while (1) {
-		st[cn][b] = st1[c];
+		candidate[cn][b] = lookup[c];
 		b++;
 		c++;
-		st[cn][b] = 0;
-		if (st1[c] == 0) break;
-		if (st1[c] == ' ') {
+		candidate[cn][b] = 0;
+		if (lookup[c] == 0) break;
+		if (lookup[c] == ' ') {
 			cn++;
 			b = 0;
 			c++;
@@ -181,7 +269,7 @@ void Get(const FunctionCallbackInfo<Value>& args) {
 	cn++;
 	for (a = 0; a < cn; a++) {
 		for (b = 0; b < words; b++) {
-			if (!strcmp(&vocab[b * max_w], st[a])) break;
+			if (!strcmp(&vocab[b * max_w], candidate[a])) break;
 		}
 		if (b == words) b = -1;
 		bi[a] = b;
@@ -254,9 +342,12 @@ void Get(const FunctionCallbackInfo<Value>& args) {
 
 }
 
+
+
 void init(Local<Object> exports) {
 	NODE_SET_METHOD(exports, "open", Open);
 	NODE_SET_METHOD(exports, "get", Get);
+	NODE_SET_METHOD(exports, "compare", Compare);
 }
 
 NODE_MODULE(distance, init)
